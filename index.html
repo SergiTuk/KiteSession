@@ -860,3 +860,176 @@
             document.getElementById('stopBtn').style.display = 'none';
             document.getElementById('sessionControls').classList.remove('active');
             document.getElementById('sessionStatus').classList.remove('active');
+            
+            if (sessionTimer) {
+                clearInterval(sessionTimer);
+                sessionTimer = null;
+            }
+        }
+        
+        function getSessionDuration() {
+            if (!sessionStartTime) return 0;
+            const now = sessionPaused ? sessionStartTime : Date.now();
+            return Math.floor((now - sessionStartTime + pausedTime) / 1000);
+        }
+        
+        function updateSessionTime() {
+            if (!sessionActive || sessionPaused) return;
+            
+            const elapsed = getSessionDuration();
+            const minutes = Math.floor(elapsed / 60);
+            const seconds = elapsed % 60;
+            
+            document.getElementById('sessionTime').textContent = 
+                `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+        
+        function updateStats() {
+            document.getElementById('maxJumpHeight').textContent = maxJumpHeight.toFixed(1);
+            document.getElementById('totalJumps').textContent = totalJumps;
+            
+            const avgSpeed = speeds.length > 0 ? (speeds.reduce((a, b) => a + b, 0) / speeds.length) : 0;
+            document.getElementById('avgSpeed').textContent = avgSpeed.toFixed(1);
+        }
+        
+        function showSessionSummary(sessionData) {
+            alert(`🏄‍♂️ Session Saved!\n\n` +
+                  `Duration: ${Math.floor(sessionData.duration/60)}:${(sessionData.duration%60).toString().padStart(2,'0')}\n` +
+                  `Total Jumps: ${sessionData.totalJumps}\n` +
+                  `Max Jump: ${sessionData.maxJump.toFixed(1)}m\n` +
+                  `Avg Speed: ${sessionData.avgSpeed.toFixed(1)} km/h\n` +
+                  `Distance: ${sessionData.distance.toFixed(1)} km`);
+        }
+        
+        function saveSessions() {
+            const sessionsData = JSON.stringify(savedSessions);
+            // Store in memory for this session
+            window.sessionData = sessionsData;
+        }
+        
+        function loadSavedSessions() {
+            try {
+                // Try to load from stored data
+                if (window.sessionData) {
+                    savedSessions = JSON.parse(window.sessionData);
+                }
+            } catch (error) {
+                console.log('No saved sessions found');
+                savedSessions = [];
+            }
+            updateSessionsList();
+        }
+        
+        function updateSessionsList() {
+            const sessionsList = document.getElementById('sessionsList');
+            if (savedSessions.length === 0) {
+                sessionsList.innerHTML = '<div style="text-align: center; opacity: 0.6; padding: 20px;">No sessions saved yet</div>';
+                return;
+            }
+            
+            sessionsList.innerHTML = savedSessions.map((session, index) => `
+                <div class="session-item">
+                    <div class="session-header">
+                        <span><strong>${session.date}</strong></span>
+                        <button class="delete-btn" onclick="deleteSession(${index})">×</button>
+                    </div>
+                    <div class="session-stats">
+                        <div>⏱️ ${Math.floor(session.duration/60)}:${(session.duration%60).toString().padStart(2,'0')}</div>
+                        <div>🏆 ${session.totalJumps} jumps</div>
+                        <div>📏 ${session.maxJump.toFixed(1)}m max</div>
+                        <div>🏃‍♂️ ${session.avgSpeed.toFixed(1)} km/h avg</div>
+                        <div>📍 ${session.distance.toFixed(1)} km</div>
+                        <div>⚡ ${session.maxSpeed.toFixed(1)} km/h max</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        function deleteSession(index) {
+            if (confirm('Delete this session?')) {
+                savedSessions.splice(index, 1);
+                saveSessions();
+                updateSessionsList();
+            }
+        }
+        
+        function clearAllSessions() {
+            if (confirm('Delete ALL saved sessions? This cannot be undone!')) {
+                savedSessions = [];
+                saveSessions();
+                updateSessionsList();
+            }
+        }
+        
+        function exportSessions() {
+            if (savedSessions.length === 0) {
+                alert('No sessions to export!');
+                return;
+            }
+            
+            const exportData = {
+                exportDate: new Date().toISOString(),
+                totalSessions: savedSessions.length,
+                sessions: savedSessions
+            };
+            
+            const dataStr = JSON.stringify(exportData, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `kitesurf-sessions-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+        
+        // Simulate data for testing when sensors aren't available
+        function simulateData() {
+            let simulatedAltitude = 10 + Math.random() * 5;
+            
+            setInterval(() => {
+                // Simulate random acceleration data
+                const simAccel = {
+                    x: (Math.random() - 0.5) * 20,
+                    y: (Math.random() - 0.5) * 20,
+                    z: 9.81 + (Math.random() - 0.5) * 5
+                };
+                
+                updateAccelerationDisplay(simAccel);
+                
+                // Simulate altitude changes
+                simulatedAltitude += (Math.random() - 0.5) * 2;
+                currentAltitude = simulatedAltitude;
+                document.getElementById('currentAltitude').textContent = `${simulatedAltitude.toFixed(0)}m`;
+                
+                // Simulate occasional jumps during active session
+                if (sessionActive && !sessionPaused && Math.random() < 0.01) {
+                    const hangTime = 1 + Math.random() * 3;
+                    const height = calculateJumpHeight(hangTime) + Math.random() * 2;
+                    recordJump(height, hangTime);
+                }
+                
+                // Simulate speed
+                const simSpeed = Math.random() * 40;
+                speeds.push(simSpeed);
+                if (speeds.length > 60) speeds.shift();
+                document.getElementById('speedData').textContent = `${simSpeed.toFixed(1)} km/h`;
+                
+                // Simulate distance during active session
+                if (sessionActive && !sessionPaused) {
+                    totalDistance += Math.random() * 0.01;
+                    document.getElementById('distanceData').textContent = `${totalDistance.toFixed(1)} km`;
+                }
+                
+                // Simulate pressure (for display only)
+                const simPressure = 1013 + (Math.random() - 0.5) * 20;
+                document.getElementById('pressureData').textContent = `${simPressure.toFixed(0)} hPa`;
+                
+            }, 100);
+        }
+    </script>
+</body>
+</html>
