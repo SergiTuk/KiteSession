@@ -75,17 +75,21 @@
         }
         
         .session-controls {
-            display: flex;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
             gap: 10px;
             margin-bottom: 20px;
         }
         
+        .session-controls.active {
+            grid-template-columns: 1fr 1fr 1fr;
+        }
+        
         .btn {
-            flex: 1;
             padding: 15px;
             border: none;
             border-radius: 25px;
-            font-size: 1.1em;
+            font-size: 1em;
             font-weight: bold;
             cursor: pointer;
             transition: all 0.3s ease;
@@ -103,6 +107,17 @@
             box-shadow: 0 10px 20px rgba(46, 213, 115, 0.4);
         }
         
+        .btn-pause {
+            background: linear-gradient(45deg, #ffa502, #ff8c00);
+            color: white;
+        }
+        
+        .btn-pause:hover {
+            background: linear-gradient(45deg, #ff8c00, #e67e00);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(255, 165, 2, 0.4);
+        }
+        
         .btn-stop {
             background: linear-gradient(45deg, #ff4757, #ff3742);
             color: white;
@@ -112,6 +127,13 @@
             background: linear-gradient(45deg, #ff3742, #ff1e30);
             transform: translateY(-2px);
             box-shadow: 0 10px 20px rgba(255, 71, 87, 0.4);
+        }
+        
+        .btn-calibrate {
+            background: linear-gradient(45deg, #5f27cd, #341f97);
+            color: white;
+            font-size: 0.9em;
+            padding: 12px;
         }
         
         .stats-grid {
@@ -208,6 +230,46 @@
             font-size: 0.9em;
         }
         
+        .saved-sessions {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 15px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .session-item {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 10px;
+            margin: 8px 0;
+            border-radius: 8px;
+            font-size: 0.9em;
+        }
+        
+        .session-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+        
+        .session-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+            font-size: 0.8em;
+            opacity: 0.9;
+        }
+        
+        .delete-btn {
+            background: #ff4757;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.7em;
+            cursor: pointer;
+        }
+        
         .sensor-debug {
             background: rgba(0, 0, 0, 0.3);
             border-radius: 10px;
@@ -220,6 +282,16 @@
             display: flex;
             justify-content: space-between;
             margin: 5px 0;
+        }
+        
+        .calibration-info {
+            background: rgba(52, 152, 219, 0.2);
+            border: 1px solid #3498db;
+            border-radius: 8px;
+            padding: 10px;
+            margin: 10px 0;
+            font-size: 0.9em;
+            text-align: center;
         }
         
         .permission-prompt {
@@ -241,6 +313,23 @@
             cursor: pointer;
         }
         
+        .export-controls {
+            display: flex;
+            gap: 5px;
+            justify-content: center;
+            margin-top: 10px;
+        }
+        
+        .export-btn {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 15px;
+            font-size: 0.8em;
+            cursor: pointer;
+        }
+        
         @media (max-width: 350px) {
             .stats-grid {
                 grid-template-columns: 1fr;
@@ -249,6 +338,14 @@
             .stat-value {
                 font-size: 1.8em;
             }
+            
+            .session-controls {
+                grid-template-columns: 1fr;
+            }
+            
+            .session-controls.active {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
@@ -256,7 +353,7 @@
     <div class="container">
         <div class="header">
             <h1>🏄‍♂️ KiteSurf Pro</h1>
-            <div>Session Tracker</div>
+            <div>Session Tracker v2.0</div>
         </div>
         
         <div class="status-bar">
@@ -279,9 +376,16 @@
             <button class="permission-btn" onclick="requestSensorPermissions()">Enable Sensors</button>
         </div>
         
-        <div class="session-controls">
-            <button class="btn btn-start" id="startBtn" onclick="toggleSession()">Start Session</button>
-            <button class="btn btn-stop" id="stopBtn" onclick="stopSession()" style="display: none;">Stop Session</button>
+        <div class="calibration-info" id="calibrationInfo">
+            <div>📍 Altitude: <span id="currentAltitude">-</span></div>
+            <div style="font-size: 0.8em; margin-top: 5px;">Reference: <span id="referenceAltitude">Not set</span></div>
+        </div>
+        
+        <div class="session-controls" id="sessionControls">
+            <button class="btn btn-start" id="startBtn" onclick="startSession()">Start Session</button>
+            <button class="btn btn-calibrate" onclick="calibrateAltitude()">Calibrate Alt</button>
+            <button class="btn btn-pause" id="pauseBtn" onclick="pauseSession()" style="display: none;">Pause</button>
+            <button class="btn btn-stop" id="stopBtn" onclick="stopSession()" style="display: none;">Stop</button>
         </div>
         
         <div class="stats-grid">
@@ -294,8 +398,8 @@
                 <div class="stat-label">Total Jumps</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value" id="maxSpeed">0.0</div>
-                <div class="stat-label">Max Speed (km/h)</div>
+                <div class="stat-value" id="avgSpeed">0.0</div>
+                <div class="stat-label">Avg Speed (km/h)</div>
             </div>
             <div class="stat-card">
                 <div class="stat-value" id="sessionTime">00:00</div>
@@ -316,6 +420,19 @@
             </div>
         </div>
         
+        <div class="saved-sessions">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <h3>💾 Saved Sessions</h3>
+                <div class="export-controls">
+                    <button class="export-btn" onclick="exportSessions()">Export</button>
+                    <button class="export-btn" onclick="clearAllSessions()">Clear All</button>
+                </div>
+            </div>
+            <div id="sessionsList">
+                <div style="text-align: center; opacity: 0.6; padding: 20px;">No sessions saved yet</div>
+            </div>
+        </div>
+        
         <div class="sensor-debug">
             <div><strong>Sensor Data:</strong></div>
             <div class="sensor-row">
@@ -327,8 +444,12 @@
                 <span id="speedData">-</span>
             </div>
             <div class="sensor-row">
-                <span>Altitude:</span>
-                <span id="altitudeData">-</span>
+                <span>Pressure:</span>
+                <span id="pressureData">-</span>
+            </div>
+            <div class="sensor-row">
+                <span>Distance:</span>
+                <span id="distanceData">0.0 km</span>
             </div>
         </div>
     </div>
@@ -336,28 +457,38 @@
     <script>
         // App state
         let sessionActive = false;
+        let sessionPaused = false;
         let sessionStartTime = null;
         let sessionTimer = null;
+        let pausedTime = 0;
         let totalJumps = 0;
         let maxJumpHeight = 0;
-        let maxSpeed = 0;
+        let speeds = [];
         let jumps = [];
+        let savedSessions = [];
         
         // Sensor state
         let accelerometer = null;
-        let gyroscope = null;
         let geolocation = null;
+        let pressure = null;
         let lastAcceleration = { x: 0, y: 0, z: 0 };
-        let speedHistory = [];
+        let lastPosition = null;
+        let totalDistance = 0;
+        let referenceAltitude = null;
+        let currentAltitude = null;
+        let barometricBaseline = null;
         
         // Jump detection variables
         let jumpStartTime = null;
+        let jumpStartAltitude = null;
         let inJump = false;
-        let jumpThreshold = 15; // m/s² threshold for jump detection
-        let landingThreshold = 12; // m/s² threshold for landing
+        let jumpThreshold = 15;
+        let landingThreshold = 12;
+        let altitudeBuffer = [];
         
         // Initialize app
         document.addEventListener('DOMContentLoaded', function() {
+            loadSavedSessions();
             checkSensorSupport();
             requestSensorPermissions();
         });
@@ -388,11 +519,20 @@
                 // Request sensor permissions
                 if ('permissions' in navigator) {
                     const accelPermission = await navigator.permissions.query({ name: 'accelerometer' });
-                    const gyroPermission = await navigator.permissions.query({ name: 'gyroscope' });
                     
-                    if (accelPermission.state === 'granted' || gyroPermission.state === 'granted') {
+                    if (accelPermission.state === 'granted') {
                         document.getElementById('sensorStatus').classList.add('active');
                         initializeSensors();
+                    }
+                }
+                
+                // Try to access ambient light sensor for pressure estimation
+                if ('AmbientLightSensor' in window) {
+                    try {
+                        const sensor = new AmbientLightSensor();
+                        sensor.start();
+                    } catch (e) {
+                        console.log('Ambient light sensor not available');
                     }
                 }
                 
@@ -412,7 +552,6 @@
                     accelerometer.addEventListener('reading', handleAccelerometerReading);
                     accelerometer.start();
                 } else {
-                    // Fallback to DeviceMotionEvent
                     window.addEventListener('devicemotion', handleDeviceMotion);
                 }
                 
@@ -420,7 +559,6 @@
                 
             } catch (error) {
                 console.log('Sensor initialization failed:', error);
-                // Simulate data for testing
                 simulateData();
             }
         }
@@ -436,7 +574,7 @@
             
             updateAccelerationDisplay(accel);
             
-            if (sessionActive) {
+            if (sessionActive && !sessionPaused) {
                 detectJump(accel);
             }
             
@@ -454,7 +592,7 @@
             
             updateAccelerationDisplay(accel);
             
-            if (sessionActive) {
+            if (sessionActive && !sessionPaused) {
                 detectJump(accel);
             }
             
@@ -469,11 +607,24 @@
         function detectJump(accel) {
             const magnitude = Math.sqrt(accel.x*accel.x + accel.y*accel.y + accel.z*accel.z);
             
-            // Detect jump start (sudden upward acceleration)
+            // Hybrid approach: Use both accelerometer and altitude data
+            const altitudeChange = currentAltitude && referenceAltitude ? 
+                (currentAltitude - referenceAltitude) : 0;
+            
+            // Store altitude in buffer for jump analysis
+            if (currentAltitude !== null) {
+                altitudeBuffer.push({
+                    altitude: currentAltitude,
+                    time: Date.now()
+                });
+                if (altitudeBuffer.length > 30) altitudeBuffer.shift(); // Keep 3 seconds at 10Hz
+            }
+            
+            // Detect jump start
             if (!inJump && magnitude > jumpThreshold) {
                 startJump();
             }
-            // Detect landing (sudden deceleration after being in air)
+            // Detect landing with hybrid approach
             else if (inJump && magnitude > landingThreshold && (Date.now() - jumpStartTime) > 500) {
                 endJump();
             }
@@ -482,6 +633,7 @@
         function startJump() {
             inJump = true;
             jumpStartTime = Date.now();
+            jumpStartAltitude = currentAltitude;
             document.getElementById('jumpAnimation').classList.add('jumping');
             document.getElementById('jumpStatus').textContent = '🚀 Jump detected!';
         }
@@ -489,16 +641,27 @@
         function endJump() {
             if (!inJump) return;
             
-            const hangTime = (Date.now() - jumpStartTime) / 1000; // seconds
-            const jumpHeight = calculateJumpHeight(hangTime);
+            const hangTime = (Date.now() - jumpStartTime) / 1000;
+            
+            // Hybrid height calculation
+            let jumpHeight = calculateJumpHeight(hangTime);
+            
+            // If we have altitude data, use it to refine the calculation
+            if (jumpStartAltitude !== null && currentAltitude !== null && altitudeBuffer.length > 5) {
+                const maxAltitudeInBuffer = Math.max(...altitudeBuffer.map(a => a.altitude));
+                const altitudeBasedHeight = maxAltitudeInBuffer - jumpStartAltitude;
+                
+                // Use altitude if reasonable, otherwise fall back to accelerometer
+                if (altitudeBasedHeight > 0 && altitudeBasedHeight < 50) {
+                    jumpHeight = Math.max(jumpHeight, altitudeBasedHeight);
+                }
+            }
             
             inJump = false;
             document.getElementById('jumpAnimation').classList.remove('jumping');
             
-            // Record jump
             recordJump(jumpHeight, hangTime);
             
-            // Update display
             document.getElementById('jumpStatus').textContent = '✅ Landing detected';
             document.getElementById('lastJumpHeight').textContent = `${jumpHeight.toFixed(1)}m (${hangTime.toFixed(1)}s)`;
             
@@ -508,8 +671,6 @@
         }
         
         function calculateJumpHeight(hangTime) {
-            // Using physics: h = (1/8) * g * t²
-            // where g = 9.81 m/s² and t = hang time
             const gravity = 9.81;
             const height = (gravity * hangTime * hangTime) / 8;
             return Math.max(0, height);
@@ -521,15 +682,17 @@
                 maxJumpHeight = height;
             }
             
+            const currentSpeed = speeds.length > 0 ? speeds[speeds.length - 1] : 0;
+            
             const jump = {
                 height: height,
                 hangTime: hangTime,
                 timestamp: new Date(),
-                speed: speedHistory.length > 0 ? speedHistory[speedHistory.length - 1] : 0
+                speed: currentSpeed
             };
             
             jumps.unshift(jump);
-            if (jumps.length > 10) jumps.pop(); // Keep only last 10 jumps
+            if (jumps.length > 10) jumps.pop();
             
             updateJumpsList();
             updateStats();
@@ -563,20 +726,32 @@
             geolocation = navigator.geolocation.watchPosition(
                 position => {
                     const speed = position.coords.speed || 0;
-                    const speedKmh = speed * 3.6; // Convert m/s to km/h
+                    const speedKmh = speed * 3.6;
                     
-                    speedHistory.push(speedKmh);
-                    if (speedHistory.length > 10) speedHistory.shift();
-                    
-                    if (speedKmh > maxSpeed) {
-                        maxSpeed = speedKmh;
+                    // Update distance calculation
+                    if (lastPosition && sessionActive && !sessionPaused) {
+                        const distance = calculateDistance(
+                            lastPosition.coords.latitude,
+                            lastPosition.coords.longitude,
+                            position.coords.latitude,
+                            position.coords.longitude
+                        );
+                        totalDistance += distance;
+                        document.getElementById('distanceData').textContent = `${totalDistance.toFixed(1)} km`;
                     }
                     
-                    document.getElementById('speedData').textContent = `${speedKmh.toFixed(1)} km/h`;
-                    document.getElementById('altitudeData').textContent = position.coords.altitude ? 
-                        `${position.coords.altitude.toFixed(0)}m` : '-';
+                    lastPosition = position;
+                    speeds.push(speedKmh);
+                    if (speeds.length > 60) speeds.shift(); // Keep last minute of speed data
                     
-                    if (sessionActive) {
+                    // Update altitude
+                    currentAltitude = position.coords.altitude;
+                    document.getElementById('currentAltitude').textContent = 
+                        currentAltitude ? `${currentAltitude.toFixed(0)}m` : '-';
+                    
+                    document.getElementById('speedData').textContent = `${speedKmh.toFixed(1)} km/h`;
+                    
+                    if (sessionActive && !sessionPaused) {
                         updateStats();
                     }
                 },
@@ -585,108 +760,103 @@
             );
         }
         
-        function toggleSession() {
-            if (sessionActive) {
-                stopSession();
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371; // Earth's radius in km
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+        
+        function calibrateAltitude() {
+            if (currentAltitude !== null) {
+                referenceAltitude = currentAltitude;
+                document.getElementById('referenceAltitude').textContent = `${referenceAltitude.toFixed(0)}m`;
+                alert(`✅ Altitude calibrated at ${referenceAltitude.toFixed(0)}m`);
             } else {
-                startSession();
+                alert('❌ GPS altitude not available yet');
             }
         }
         
         function startSession() {
             sessionActive = true;
+            sessionPaused = false;
             sessionStartTime = Date.now();
+            pausedTime = 0;
             
             document.getElementById('startBtn').style.display = 'none';
+            document.getElementById('pauseBtn').style.display = 'block';
             document.getElementById('stopBtn').style.display = 'block';
+            document.getElementById('sessionControls').classList.add('active');
             document.getElementById('sessionStatus').classList.add('active');
             
-            // Start session timer
             sessionTimer = setInterval(updateSessionTime, 1000);
             
             // Reset session stats
             totalJumps = 0;
             maxJumpHeight = 0;
-            maxSpeed = 0;
+            speeds = [];
             jumps = [];
-            speedHistory = [];
+            totalDistance = 0;
             
             updateStats();
             updateJumpsList();
         }
         
+        function pauseSession() {
+            if (sessionPaused) {
+                // Resume
+                sessionPaused = false;
+                pausedTime += Date.now() - sessionStartTime;
+                sessionStartTime = Date.now();
+                document.getElementById('pauseBtn').textContent = 'Pause';
+                sessionTimer = setInterval(updateSessionTime, 1000);
+            } else {
+                // Pause
+                sessionPaused = true;
+                document.getElementById('pauseBtn').textContent = 'Resume';
+                if (sessionTimer) {
+                    clearInterval(sessionTimer);
+                }
+            }
+        }
+        
         function stopSession() {
-            sessionActive = false;
-            
-            document.getElementById('startBtn').style.display = 'block';
-            document.getElementById('stopBtn').style.display = 'none';
-            document.getElementById('sessionStatus').classList.remove('active');
-            
-            if (sessionTimer) {
-                clearInterval(sessionTimer);
-                sessionTimer = null;
+            if (totalJumps === 0 && speeds.length === 0) {
+                alert('No data to save - session was too short!');
+                resetSession();
+                return;
             }
             
-            // Show session summary
-            showSessionSummary();
+            const sessionData = {
+                id: Date.now(),
+                date: new Date().toLocaleString(),
+                duration: getSessionDuration(),
+                totalJumps: totalJumps,
+                maxJump: maxJumpHeight,
+                avgSpeed: speeds.length > 0 ? (speeds.reduce((a, b) => a + b, 0) / speeds.length) : 0,
+                maxSpeed: speeds.length > 0 ? Math.max(...speeds) : 0,
+                distance: totalDistance,
+                jumps: [...jumps]
+            };
+            
+            savedSessions.unshift(sessionData);
+            saveSessions();
+            
+            showSessionSummary(sessionData);
+            resetSession();
+            updateSessionsList();
         }
         
-        function updateSessionTime() {
-            if (!sessionActive || !sessionStartTime) return;
+        function resetSession() {
+            sessionActive = false;
+            sessionPaused = false;
             
-            const elapsed = Math.floor((Date.now() - sessionStartTime) / 1000);
-            const minutes = Math.floor(elapsed / 60);
-            const seconds = elapsed % 60;
-            
-            document.getElementById('sessionTime').textContent = 
-                `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-        }
-        
-        function updateStats() {
-            document.getElementById('maxJumpHeight').textContent = maxJumpHeight.toFixed(1);
-            document.getElementById('totalJumps').textContent = totalJumps;
-            document.getElementById('maxSpeed').textContent = maxSpeed.toFixed(1);
-        }
-        
-        function showSessionSummary() {
-            if (totalJumps === 0) return;
-            
-            const avgHeight = jumps.length > 0 ? 
-                (jumps.reduce((sum, jump) => sum + jump.height, 0) / jumps.length) : 0;
-            
-            alert(`🏄‍♂️ Session Complete!\n\n` +
-                  `Total Jumps: ${totalJumps}\n` +
-                  `Max Jump: ${maxJumpHeight.toFixed(1)}m\n` +
-                  `Avg Jump: ${avgHeight.toFixed(1)}m\n` +
-                  `Max Speed: ${maxSpeed.toFixed(1)} km/h`);
-        }
-        
-        // Simulate data for testing when sensors aren't available
-        function simulateData() {
-            setInterval(() => {
-                // Simulate random acceleration data
-                const simAccel = {
-                    x: (Math.random() - 0.5) * 20,
-                    y: (Math.random() - 0.5) * 20,
-                    z: 9.81 + (Math.random() - 0.5) * 5
-                };
-                
-                updateAccelerationDisplay(simAccel);
-                
-                // Simulate occasional jumps
-                if (sessionActive && Math.random() < 0.02) {
-                    const hangTime = 1 + Math.random() * 3;
-                    const height = calculateJumpHeight(hangTime);
-                    recordJump(height, hangTime);
-                }
-                
-                // Simulate speed
-                const simSpeed = Math.random() * 40;
-                if (simSpeed > maxSpeed) maxSpeed = simSpeed;
-                document.getElementById('speedData').textContent = `${simSpeed.toFixed(1)} km/h`;
-                
-            }, 100);
-        }
-    </script>
-</body>
-</html>
+            document.getElementById('startBtn').style.display = 'block';
+            document.getElementById('pauseBtn').style.display = 'none';
+            document.getElementById('stopBtn').style.display = 'none';
+            document.getElementById('sessionControls').classList.remove('active');
+            document.getElementById('sessionStatus').classList.remove('active');
