@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KiteSurf Pro - Session Tracker</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #00c6ff 0%, #0072ff 100%);
+            min-height: 100vh;
+            color: white;
+            overflow-x: hidden;
+        }
+        
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+            padding: 10px;
+            min-height: 100vh;
+        }
+        
+        .header {
+            text-align: center;
+            padding: 20px 0;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            margin-bottom: 15px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .header h1 {
+            font-size: 1.8em;
+            margin-bottom: 5px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 10px 15px;
+            border-radius: 25px;
+            margin-bottom: 15px;
+            font-size: 0.9em;
+        }
+        
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #ff4757;
+        }
+        
+        .status-dot.active {
+            background: #2ed573;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .session-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .btn {
+            flex: 1;
+            padding: 15px;
+            border: none;
+            border-radius: 25px;
+            font-size: 1.1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+        }
+        
+        .btn-start {
+            background: linear-gradient(45deg, #2ed573, #17b978);
+            color: white;
+        }
+        
+        .btn-start:hover, .btn-start.active {
+            background: linear-gradient(45deg, #17b978, #0f9960);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(46, 213, 115, 0.4);
+        }
+        
+        .btn-stop {
+            background: linear-gradient(45deg, #ff4757, #ff3742);
+            color: white;
+        }
+        
+        .btn-stop:hover {
+            background: linear-gradient(45deg, #ff3742, #ff1e30);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(255, 71, 87, 0.4);
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-card {
+            background: rgba(255, 255, 255, 0.15);
+            padding: 20px;
+            border-radius: 20px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: transform 0.3s ease;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .stat-value {
+            font-size: 2.2em;
+            font-weight: bold;
+            line-height: 1;
+            margin-bottom: 5px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .stat-label {
+            font-size: 0.85em;
+            opacity: 0.9;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .jump-detector {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .jump-animation {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 15px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2em;
+            transition: all 0.3s ease;
+        }
+        
+        .jump-animation.jumping {
+            border-color: #ffa502;
+            background: rgba(255, 165, 2, 0.2);
+            transform: scale(1.2);
+            animation: jump-pulse 0.5s ease;
+        }
+        
+        @keyframes jump-pulse {
+            0%, 100% { transform: scale(1.2); }
+            50% { transform: scale(1.4); }
+        }
+        
+        .recent-jumps {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 15px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .recent-jumps h3 {
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+        
+        .jump-list {
+            max-height: 120px;
+            overflow-y: auto;
+        }
+        
+        .jump-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 0.9em;
+        }
+        
+        .sensor-debug {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            padding: 10px;
+            font-size: 0.8em;
+            margin-top: 20px;
+        }
+        
+        .sensor-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 5px 0;
+        }
+        
+        .permission-prompt {
+            background: rgba(255, 193, 7, 0.9);
+            color: #000;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        
+        .permission-btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 20px;
+            margin-top: 10px;
+            cursor: pointer;
+        }
+        
+        @media (max-width: 350px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .stat-value {
+                font-size: 1.8em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏄‍♂️ KiteSurf Pro</h1>
+            <div>Session Tracker</div>
+        </div>
+        
+        <div class="status-bar">
+            <div class="status-item">
+                <div class="status-dot" id="gpsStatus"></div>
+                <span>GPS</span>
+            </div>
+            <div class="status-item">
+                <div class="status-dot" id="sensorStatus"></div>
+                <span>Sensors</span>
+            </div>
+            <div class="status-item">
+                <div class="status-dot" id="sessionStatus"></div>
+                <span>Session</span>
+            </div>
+        </div>
+        
+        <div id="permissionPrompt" class="permission-prompt" style="display: none;">
+            <div>📱 Enable sensors for jump tracking</div>
+            <button class="permission-btn" onclick="requestSensorPermissions()">Enable Sensors</button>
+        </div>
+        
+        <div class="session-controls">
+            <button class="btn btn-start" id="startBtn" onclick="toggleSession()">Start Session</button>
+            <button class="btn btn-stop" id="stopBtn" onclick="stopSession()" style="display: none;">Stop Session</button>
+        </div>
+        
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value" id="maxJumpHeight">0.0</div>
+                <div class="stat-label">Max Jump (m)</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="totalJumps">0</div>
+                <div class="stat-label">Total Jumps</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="maxSpeed">0.0</div>
+                <div class="stat-label">Max Speed (km/h)</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="sessionTime">00:00</div>
+                <div class="stat-label">Session Time</div>
+            </div>
+        </div>
+        
+        <div class="jump-detector">
+            <div class="jump-animation" id="jumpAnimation">🪂</div>
+            <div id="jumpStatus">Ready to detect jumps...</div>
+            <div id="lastJumpHeight" style="font-size: 1.2em; margin-top: 10px;">-</div>
+        </div>
+        
+        <div class="recent-jumps">
+            <h3>🏆 Recent Jumps</h3>
+            <div class="jump-list" id="jumpList">
+                <div style="text-align: center; opacity: 0.6; padding: 20px;">No jumps recorded yet</div>
+            </div>
+        </div>
+        
+        <div class="sensor-debug">
+            <div><strong>Sensor Data:</strong></div>
+            <div class="sensor-row">
+                <span>Acceleration:</span>
+                <span id="accelData">- - -</span>
+            </div>
+            <div class="sensor-row">
+                <span>Speed:</span>
+                <span id="speedData">-</span>
+            </div>
+            <div class="sensor-row">
+                <span>Altitude:</span>
+                <span id="altitudeData">-</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // App state
+        let sessionActive = false;
+        let sessionStartTime = null;
+        let sessionTimer = null;
+        let totalJumps = 0;
+        let maxJumpHeight = 0;
+        let maxSpeed = 0;
+        let jumps = [];
+        
+        // Sensor state
+        let accelerometer = null;
+        let gyroscope = null;
+        let geolocation = null;
+        let lastAcceleration = { x: 0, y: 0, z: 0 };
+        let speedHistory = [];
+        
+        // Jump detection variables
+        let jumpStartTime = null;
+        let inJump = false;
+        let jumpThreshold = 15; // m/s² threshold for jump detection
+        let landingThreshold = 12; // m/s² threshold for landing
+        
+        // Initialize app
+        document.addEventListener('DOMContentLoaded', function() {
+            checkSensorSupport();
+            requestSensorPermissions();
+        });
+        
+        function checkSensorSupport() {
+            const hasAccel = 'Accelerometer' in window;
+            const hasGyro = 'Gyroscope' in window;
+            const hasGPS = 'geolocation' in navigator;
+            
+            if (!hasAccel || !hasGyro) {
+                document.getElementById('permissionPrompt').style.display = 'block';
+            }
+        }
+        
+        async function requestSensorPermissions() {
+            try {
+                // Request GPS permission
+                if ('geolocation' in navigator) {
+                    navigator.geolocation.getCurrentPosition(
+                        position => {
+                            document.getElementById('gpsStatus').classList.add('active');
+                            startGPSTracking();
+                        },
+                        error => console.log('GPS permission denied')
+                    );
+                }
+                
+                // Request sensor permissions
+                if ('permissions' in navigator) {
+                    const accelPermission = await navigator.permissions.query({ name: 'accelerometer' });
+                    const gyroPermission = await navigator.permissions.query({ name: 'gyroscope' });
+                    
+                    if (accelPermission.state === 'granted' || gyroPermission.state === 'granted') {
+                        document.getElementById('sensorStatus').classList.add('active');
+                        initializeSensors();
+                    }
+                }
+                
+                document.getElementById('permissionPrompt').style.display = 'none';
+                
+            } catch (error) {
+                console.log('Sensor permissions not supported, trying direct access...');
+                initializeSensors();
+            }
+        }
+        
+        function initializeSensors() {
+            try {
+                // Initialize accelerometer
+                if ('Accelerometer' in window) {
+                    accelerometer = new Accelerometer({ frequency: 60 });
+                    accelerometer.addEventListener('reading', handleAccelerometerReading);
+                    accelerometer.start();
+                } else {
+                    // Fallback to DeviceMotionEvent
+                    window.addEventListener('devicemotion', handleDeviceMotion);
+                }
+                
+                document.getElementById('sensorStatus').classList.add('active');
+                
+            } catch (error) {
+                console.log('Sensor initialization failed:', error);
+                // Simulate data for testing
+                simulateData();
+            }
+        }
+        
+        function handleAccelerometerReading() {
+            if (!accelerometer) return;
+            
+            const accel = {
+                x: accelerometer.x || 0,
+                y: accelerometer.y || 0,
+                z: accelerometer.z || 0
+            };
+            
+            updateAccelerationDisplay(accel);
+            
+            if (sessionActive) {
+                detectJump(accel);
+            }
+            
+            lastAcceleration = accel;
+        }
+        
+        function handleDeviceMotion(event) {
+            if (!event.accelerationIncludingGravity) return;
+            
+            const accel = {
+                x: event.accelerationIncludingGravity.x || 0,
+                y: event.accelerationIncludingGravity.y || 0,
+                z: event.accelerationIncludingGravity.z || 0
+            };
+            
+            updateAccelerationDisplay(accel);
+            
+            if (sessionActive) {
+                detectJump(accel);
+            }
+            
+            lastAcceleration = accel;
+        }
+        
+        function updateAccelerationDisplay(accel) {
+            const magnitude = Math.sqrt(accel.x*accel.x + accel.y*accel.y + accel.z*accel.z);
+            document.getElementById('accelData').textContent = `${magnitude.toFixed(1)} m/s²`;
+        }
+        
+        function detectJump(accel) {
+            const magnitude = Math.sqrt(accel.x*accel.x + accel.y*accel.y + accel.z*accel.z);
+            
+            // Detect jump start (sudden upward acceleration)
+            if (!inJump && magnitude > jumpThreshold) {
+                startJump();
+            }
+            // Detect landing (sudden deceleration after being in air)
+            else if (inJump && magnitude > landingThreshold && (Date.now() - jumpStartTime) > 500) {
+                endJump();
+            }
+        }
+        
+        function startJump() {
+            inJump = true;
+            jumpStartTime = Date.now();
+            document.getElementById('jumpAnimation').classList.add('jumping');
+            document.getElementById('jumpStatus').textContent = '🚀 Jump detected!';
+        }
+        
+        function endJump() {
+            if (!inJump) return;
+            
+            const hangTime = (Date.now() - jumpStartTime) / 1000; // seconds
+            const jumpHeight = calculateJumpHeight(hangTime);
+            
+            inJump = false;
+            document.getElementById('jumpAnimation').classList.remove('jumping');
+            
+            // Record jump
+            recordJump(jumpHeight, hangTime);
+            
+            // Update display
+            document.getElementById('jumpStatus').textContent = '✅ Landing detected';
+            document.getElementById('lastJumpHeight').textContent = `${jumpHeight.toFixed(1)}m (${hangTime.toFixed(1)}s)`;
+            
+            setTimeout(() => {
+                document.getElementById('jumpStatus').textContent = 'Ready to detect jumps...';
+            }, 2000);
+        }
+        
+        function calculateJumpHeight(hangTime) {
+            // Using physics: h = (1/8) * g * t²
+            // where g = 9.81 m/s² and t = hang time
+            const gravity = 9.81;
+            const height = (gravity * hangTime * hangTime) / 8;
+            return Math.max(0, height);
+        }
+        
+        function recordJump(height, hangTime) {
+            totalJumps++;
+            if (height > maxJumpHeight) {
+                maxJumpHeight = height;
+            }
+            
+            const jump = {
+                height: height,
+                hangTime: hangTime,
+                timestamp: new Date(),
+                speed: speedHistory.length > 0 ? speedHistory[speedHistory.length - 1] : 0
+            };
+            
+            jumps.unshift(jump);
+            if (jumps.length > 10) jumps.pop(); // Keep only last 10 jumps
+            
+            updateJumpsList();
+            updateStats();
+        }
+        
+        function updateJumpsList() {
+            const jumpList = document.getElementById('jumpList');
+            if (jumps.length === 0) {
+                jumpList.innerHTML = '<div style="text-align: center; opacity: 0.6; padding: 20px;">No jumps recorded yet</div>';
+                return;
+            }
+            
+            jumpList.innerHTML = jumps.map((jump, index) => `
+                <div class="jump-item">
+                    <span>#${totalJumps - index}</span>
+                    <span>${jump.height.toFixed(1)}m</span>
+                    <span>${jump.hangTime.toFixed(1)}s</span>
+                </div>
+            `).join('');
+        }
+        
+        function startGPSTracking() {
+            if (!navigator.geolocation) return;
+            
+            const options = {
+                enableHighAccuracy: true,
+                timeout: 5000,
+                maximumAge: 0
+            };
+            
+            geolocation = navigator.geolocation.watchPosition(
+                position => {
+                    const speed = position.coords.speed || 0;
+                    const speedKmh = speed * 3.6; // Convert m/s to km/h
+                    
+                    speedHistory.push(speedKmh);
+                    if (speedHistory.length > 10) speedHistory.shift();
+                    
+                    if (speedKmh > maxSpeed) {
+                        maxSpeed = speedKmh;
+                    }
+                    
+                    document.getElementById('speedData').textContent = `${speedKmh.toFixed(1)} km/h`;
+                    document.getElementById('altitudeData').textContent = position.coords.altitude ? 
+                        `${position.coords.altitude.toFixed(0)}m` : '-';
+                    
+                    if (sessionActive) {
+                        updateStats();
+                    }
+                },
+                error => console.log('GPS error:', error),
+                options
+            );
+        }
+        
+        function toggleSession() {
+            if (sessionActive) {
+                stopSession();
+            } else {
+                startSession();
+            }
+        }
+        
+        function startSession() {
+            sessionActive = true;
+            sessionStartTime = Date.now();
+            
+            document.getElementById('startBtn').style.display = 'none';
+            document.getElementById('stopBtn').style.display = 'block';
+            document.getElementById('sessionStatus').classList.add('active');
+            
+            // Start session timer
+            sessionTimer = setInterval(updateSessionTime, 1000);
+            
+            // Reset session stats
+            totalJumps = 0;
+            maxJumpHeight = 0;
+            maxSpeed = 0;
+            jumps = [];
+            speedHistory = [];
+            
+            updateStats();
+            updateJumpsList();
+        }
+        
+        function stopSession() {
+            sessionActive = false;
+            
+            document.getElementById('startBtn').style.display = 'block';
+            document.getElementById('stopBtn').style.display = 'none';
+            document.getElementById('sessionStatus').classList.remove('active');
+            
+            if (sessionTimer) {
+                clearInterval(sessionTimer);
+                sessionTimer = null;
+            }
+            
+            // Show session summary
+            showSessionSummary();
+        }
+        
+        function updateSessionTime() {
+            if (!sessionActive || !sessionStartTime) return;
+            
+            const elapsed = Math.floor((Date.now() - sessionStartTime) / 1000);
+            const minutes = Math.floor(elapsed / 60);
+            const seconds = elapsed % 60;
+            
+            document.getElementById('sessionTime').textContent = 
+                `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+        
+        function updateStats() {
+            document.getElementById('maxJumpHeight').textContent = maxJumpHeight.toFixed(1);
+            document.getElementById('totalJumps').textContent = totalJumps;
+            document.getElementById('maxSpeed').textContent = maxSpeed.toFixed(1);
+        }
+        
+        function showSessionSummary() {
+            if (totalJumps === 0) return;
+            
+            const avgHeight = jumps.length > 0 ? 
+                (jumps.reduce((sum, jump) => sum + jump.height, 0) / jumps.length) : 0;
+            
+            alert(`🏄‍♂️ Session Complete!\n\n` +
+                  `Total Jumps: ${totalJumps}\n` +
+                  `Max Jump: ${maxJumpHeight.toFixed(1)}m\n` +
+                  `Avg Jump: ${avgHeight.toFixed(1)}m\n` +
+                  `Max Speed: ${maxSpeed.toFixed(1)} km/h`);
+        }
+        
+        // Simulate data for testing when sensors aren't available
+        function simulateData() {
+            setInterval(() => {
+                // Simulate random acceleration data
+                const simAccel = {
+                    x: (Math.random() - 0.5) * 20,
+                    y: (Math.random() - 0.5) * 20,
+                    z: 9.81 + (Math.random() - 0.5) * 5
+                };
+                
+                updateAccelerationDisplay(simAccel);
+                
+                // Simulate occasional jumps
+                if (sessionActive && Math.random() < 0.02) {
+                    const hangTime = 1 + Math.random() * 3;
+                    const height = calculateJumpHeight(hangTime);
+                    recordJump(height, hangTime);
+                }
+                
+                // Simulate speed
+                const simSpeed = Math.random() * 40;
+                if (simSpeed > maxSpeed) maxSpeed = simSpeed;
+                document.getElementById('speedData').textContent = `${simSpeed.toFixed(1)} km/h`;
+                
+            }, 100);
+        }
+    </script>
+</body>
+</html>
